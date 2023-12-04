@@ -13,14 +13,14 @@ delta1 <- 0.10
 delta2 <- 1.00
 delta3 <- 0.50
 
-dat <- tibble(pid = c(0, 1, 2, 3, 4),
-              group = c(0, 1, 1, 2, 2),
-              mint = c(NA, 2, 2, 4, 4)) %>%
+dat <- tibble(pid = 1:10,
+              group = c(rep(0, 1), rep(1, 3), rep(2, 6)),
+              mint = c(rep(NA, 1), rep(1, 3), rep(4, 6))) %>%
   expand_grid(period = 0:5, tfx = 0, d = 0) %>%
-  mutate(tfx = ifelse(group == 1 & period %in% c(2,3), delta1, tfx),
+  mutate(tfx = ifelse(group == 1 & period %in% c(1,2,3), delta1, tfx),
          tfx = ifelse(group == 1 & period %in% c(4,5), delta2, tfx),
          tfx = ifelse(group == 2 & period %in% c(4,5), delta3, tfx),
-         d = ifelse(group == 1 & period >= 2, 1, d),
+         d = ifelse(group == 1 & period >= 1, 1, d),
          d = ifelse(group == 2 & period >= 4, 1, d)) %>%
   mutate(et = ifelse(!is.na(mint), period - mint, -1)) %>%
   mutate(et = relevel(as_factor(et), ref = "-1"))
@@ -32,11 +32,14 @@ dat$y <- dat$tfx + rnorm(n = nrow(dat), mean = 0, sd = 1 / sqrt(10000))
 plot_dat <- dat %>%
   group_by(group, period) %>%
   summarize(y = mean(y)) %>%
-  mutate(Group = as_factor(group), Time = as_factor(period))
+  mutate(Group = factor(
+    group, levels = 0:2,  
+    labels = c("Never Treated (10%)", "Early Adopters (30%)", "Late Adopters (60%)")), 
+    Time = as_factor(period))
   
 p1 <- ggplot(plot_dat, aes(x = Time, y = y, group = Group, color = Group)) +
   geom_point(alpha = 0.5, size = 4) +
-  geom_step(alpha = 0.5, size = 4) +
+  geom_line(alpha = 0.5, size = 4) +
   ylab("Outcome") +
   theme_classic() +
   theme(axis.title = element_text(size = 20),
@@ -45,7 +48,7 @@ p1 <- ggplot(plot_dat, aes(x = Time, y = y, group = Group, color = Group)) +
         legend.text = element_text(size = 16))
 
 p1
-ggsave("./dgp.pdf")
+ggsave("./dgp.png")
 
 
 # Goodman-Bacon decomposition
@@ -57,16 +60,15 @@ att <- mean(filter(dat, d == 1)$tfx)
 
 p2 <- ggplot(bacon_decomp) +
   aes(x = weight, y = estimate, color = factor(type)) +
-  labs(x = "Weight", y = "Estimate", color = "Type") +
+  labs(x = "Weight", y = "Estimate", color = "Comparison") +
   geom_point(size = 4) +
-  annotate(geom = "curve", x = 0.24, y = -0.2, xend = 0.25, yend = -0.34, 
+  annotate(geom = "curve", x = 0.35, y = -0.2, xend = 0.47, yend = -0.36, 
            curvature = -.3, arrow = arrow(length = unit(2, "mm")),
            size = 1) +
-  annotate(geom = "text", x = 0.24, y = -0.2, 
-           label = "-ATT(1,4) & -ATT(1,5)", 
+  annotate(geom = "text", x = 0.35, y = -0.2, 
+           label = "ATT(1,4) & ATT(1,5)", 
            hjust = "right", 
            size = 6) +  
-  xlim(c(0.20, 0.25)) +
   theme_classic() +
   theme(axis.title = element_text(size = 20),
         axis.text = element_text(size = 16),
@@ -74,9 +76,7 @@ p2 <- ggplot(bacon_decomp) +
         legend.text = element_text(size = 16)) +
   scale_color_manual(values=c("#7fc97f", "#beaed4", "#fdc086"))
 p2
-
-p1 + p2
-ggsave("./bacon_decomp.pdf")
+ggsave("./bacon_decomp.png")
 
 
 # Simulate DID & event study estimates.
@@ -104,7 +104,7 @@ ggplot(did_sim, aes(d)) +
         axis.text = element_text(size = 16),
         legend.title = element_text(size = 20),
         legend.text = element_text(size = 16))
-ggsave("./did_sims.pdf")
+ggsave("./did_sims.png")
 
 
 # Event study
@@ -135,7 +135,7 @@ ggplot(es_sim) +
         axis.text = element_text(size = 16),
         legend.title = element_text(size = 20),
         legend.text = element_text(size = 16))
-ggsave("./es_sims.pdf")
+ggsave("./es_sims.png")
 
 
 
